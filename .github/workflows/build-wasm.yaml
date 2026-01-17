@@ -1,0 +1,49 @@
+name: Build WASM
+
+# 触发条件：
+# 1. 手动触发 (workflow_dispatch) - 让你能随时点击按钮生成
+# 2. 推送到 master 时自动生成
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+
+jobs:
+  build-wasm:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      # 安装 Emscripten SDK (这是编译 WASM 的核心编译器)
+      # GitHub Actions 使用这个步骤非常快，不需要拉取几百兆的 Docker 镜像
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.64 # 使用一个较新的稳定版，或者配合 tree-sitter 要求的版本
+          actions-cache-folder: 'emsdk-cache'
+
+      - name: Install Dependencies
+        run: npm install
+
+      # 使用项目中安装的 tree-sitter-cli 进行编译
+      # 因为安装了 emsdk，它会直接使用本机环境编译，无需 Docker
+      - name: Build WASM
+        run: npx tree-sitter build --wasm
+
+      # 将生成的 .wasm 文件上传为 Artifact (构建产物)
+      # 这样你就可以在网页上下载了
+      - name: Upload WASM Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tree-sitter-dart-wasm
+          path: tree-sitter-dart.wasm
+          retention-days: 5
